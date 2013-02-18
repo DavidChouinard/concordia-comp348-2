@@ -35,10 +35,10 @@ legal' r = and (map ($ r) ruleset)
 ruleset = [rule0, rule1, rule2, rule3, rule4, rule5]
 
 -- Rule 0: If truffles, then precisely truffles.
-rule0 r = truffles r && preciselyTruffles r
+rule0 r = not (truffles r) || preciselyTruffles r
 
 -- Rule 1: Either truffles or some meat.
-rule1 r = truffles r || (bacon r && ham r && sausage r )
+rule1 r = truffles r || (bacon r || ham r || sausage r)
 
 -- Rule 2: Not both peppers and onions.
 rule2 r = not (peppers r && onions r)
@@ -61,8 +61,7 @@ type Bit  = Char
 type Cost = Integer
 
 cost' :: Recipe -> Cost
-cost' r = sum (zipWith (includeCost) costs r)
--- cost' r = sum (map (uncurry includeCost) (zip costs r))
+cost' r = sum (zipWith includeCost costs r)
 
 includeCost :: Cost -> Bit -> Cost
 includeCost cost bit = if bit == '1' then cost else 0
@@ -126,7 +125,7 @@ buildRun seed reports
 
 (.~.) :: Report -> Report -> Bool
 -- test recipe pairs for Hamming distance 1
-x .~. y = length (filter (== True) (zipWith (==) (recipe x) (recipe y))) == 1
+x .~. y = length (filter (== False) (zipWith (==) (recipe x) (recipe y))) == 1
 
 -- print routines
 
@@ -147,7 +146,7 @@ showRecipes = unlines . map showNames
 
 showRecipes' :: Run -> String
 showRecipes' run = (unlines . map showNames) run ++ "  total cost  = $" ++
-                   show (sum (map popcnt run)) ++ "\n" ++
+                   show (sum (map cost run)) ++ "\n" ++
                    "  prize money = $" ++ show (length run) ++ " million\n"
 
 type Name = String
@@ -164,7 +163,7 @@ includeName :: Name -> Bit -> Name
 includeName name bit = if bit == '1' then name else replicate (length name) ' '
 
 addEggs :: [Name] -> [Name]
-addEggs = id  -- fix!
+addEggs names = "eggs " : names
 
 names =
   ["peppers ", "bacon ", "ham ", "sausage ", "onions ", "mushrooms ", "truffles"]
@@ -179,13 +178,57 @@ main = do
   -- printReports reports
   render       "First ten recipes with number of ingredients and cost:"
   printRecipes $ take 10 reports
+  {- Sample output:
+    eggs                                                      (0)  $0
+    eggs peppers                                              (1)  $1
+    eggs peppers bacon                                        (2)  $3
+    ...                                                               -}
+
   render       "All legal recipes with number of ingredients and cost:"
   printRecipes legal_reports
+  {- Sample output:
+    eggs peppers bacon                                        (2)  $3
+    eggs                   sausage onions                     (2)  $24
+    eggs               ham         onions mushrooms           (3)  $52
+    ...                                                               -}
+
   render       "All Gray-code runs:"
   printRuns    runsA
+  {- Sample output:
+    eggs peppers bacon                                        (2)  $3
+
+    eggs                   sausage onions                     (2)  $24
+
+    eggs               ham         onions mushrooms           (3)  $52
+    eggs               ham sausage onions mushrooms           (4)  $60
+    ...                                                               -}
+
   render       "All Gray-code runs with total cost and prize money:"
   printRuns'   runsA
+  {- Sample output:
+    eggs peppers bacon                                        (2)  $3
+      total cost  = $3
+      prize money = $1 million
+
+    eggs                   sausage onions                     (2)  $24
+      total cost  = $24
+      prize money = $1 million
+    ...                                                               -}
+
   render       "All seed-generated runs:"
   printRuns    runsB
+  {- Sample output:
+    eggs peppers bacon                                        (2)  $3
+    eggs peppers bacon                    mushrooms           (3)  $35
+    eggs peppers bacon ham                mushrooms           (4)  $39
+    eggs peppers       ham                mushrooms           (3)  $37
+    ...                                                               -}
+
   render       "All seed-generated runs with total cost and prize money:"
   printRuns'   runsB
+  {- Sample output:
+    eggs peppers bacon                                        (2)  $3
+    eggs peppers bacon                    mushrooms           (3)  $35
+    eggs peppers bacon ham                mushrooms           (4)  $39
+    eggs peppers       ham                mushrooms           (3)  $37
+    ...                                                               -}
